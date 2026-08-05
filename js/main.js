@@ -3,7 +3,6 @@
 
 const IMAGE = "assets/images/";
 const SOUND = "assets/sounds/";
-
 window.GAME_TASKS = [
   {id:"in_box", image:"cat_in_box.png", subject:"The cat", verb:"is", preposition:"in", object:"the box", sentence:"The cat is in the box.", objectAudio:"the_box.mp3"},
   {id:"on_box", image:"cat_on_box.png", subject:"The cat", verb:"is", preposition:"on", object:"the box", sentence:"The cat is on the box.", objectAudio:"the_box.mp3"},
@@ -14,7 +13,6 @@ window.GAME_TASKS = [
   {id:"between", image:"cat_between_table_and_box.png", subject:"The cat", verb:"is", preposition:"between", object:"the table and the box", sentence:"The cat is between the table and the box.", objectAudio:null},
   {id:"near_lamp", image:"cat_near_lamp.png", subject:"The cat", verb:"is", preposition:"near", object:"the lamp", sentence:"The cat is near the lamp.", objectAudio:"the_lamp.mp3"}
 ];
-
 const rules = {
   sentence: {
     title:"Sentence Builder",
@@ -22,14 +20,13 @@ const rules = {
   },
   shooter: {
     title:"Picture Shooter",
-    html:`<p>Choose the picture that matches the preposition.</p><ol><li>Read the word at the top.</li><li>Look at all pictures.</li><li>Tap the correct picture to fire a safe light beam.</li><li>Try to keep all three lives.</li></ol>`
+    html:`<p>Choose the picture that matches the full phrase.</p><ol><li>Read the phrase at the top, for example <strong>under the table</strong>.</li><li>Look at all pictures.</li><li>Tap the correct picture to fire a safe light beam.</li><li>Try to keep all three lives.</li></ol>`
   },
   typing: {
     title:"Type the Preposition",
-    html:`<p>Type the missing preposition.</p><ol><li>Look at the picture.</li><li>Read the sentence with the missing word.</li><li>Type the correct preposition.</li><li>Tap <strong>Check</strong>.</li></ol><p>Capital letters are not required.</p>`
+    html:`<p>Type the missing preposition.</p><ol><li>Look at the picture.</li><li>Read the sentence with the missing word.</li><li>On Easy and Medium, listen to the preposition and use the replay button if needed.</li><li>Type the correct preposition and tap <strong>Check</strong>.</li></ol><p>Capital letters are not required.</p>`
   }
 };
-
 const names = {
   sentence:"Sentence Builder",
   shooter:"Picture Shooter",
@@ -37,14 +34,13 @@ const names = {
 };
 const descriptions = {
   sentence:"Look at the picture and put the sentence parts in the correct order.",
-  shooter:"Read the preposition and shoot the correct picture.",
+  shooter:"Read the phrase and shoot the correct picture.",
   typing:"Look at the picture and type the missing preposition."
 };
-
 const state = {
   screen:"home", selectedGame:null, difficulty:"easy", speed:"slow",
   score:0, correct:0, mistakes:0, lives:3, round:0, tasks:[],
-  timer:null, timeLeft:30, paused:false, running:false,
+  timer:null, timeLeft:30, paused:false, running:false, totalRounds:8,
   musicEnabled: localStorage.getItem("epg_music") !== "false",
   soundsEnabled: localStorage.getItem("epg_sounds") !== "false"
 };
@@ -53,7 +49,6 @@ const el = id => document.getElementById(id);
 const screens = [...document.querySelectorAll(".screen")];
 const audioCache = new Map();
 let bgMusic;
-
 function showScreen(id){
   screens.forEach(s => s.classList.toggle("active", s.id === id));
   state.screen = id;
@@ -106,7 +101,8 @@ function startGame(){
   state.difficulty=selectedRadio("difficulty");
   state.speed=selectedRadio("speed");
   state.score=0; state.correct=0; state.mistakes=0; state.lives=3; state.round=0;
-  state.tasks=shuffle(GAME_TASKS);
+  state.tasks=shuffle(window.GAME_TASKS.filter(task => state.selectedGame !== "sentence" || task.id !== "between"));
+  state.totalRounds=state.tasks.length;
   state.running=true; state.paused=false;
   showScreen("gameScreen");
   el("gameTitle").textContent=names[state.selectedGame];
@@ -138,11 +134,11 @@ function startTimer(){
 function stopTimer(){ if(state.timer){clearInterval(state.timer);state.timer=null;} }
 function updateStats(){
   el("scoreValue").textContent=state.score;
-  el("roundValue").textContent=`${Math.min(state.round+1,8)} / 8`;
+  el("roundValue").textContent=`${Math.min(state.round+1,state.totalRounds)} / ${state.totalRounds}`;
   el("livesValue").textContent="♥ ".repeat(Math.max(0,state.lives)).trim() || "—";
 }
 function loadRound(){
-  if(state.round>=8 || state.lives<=0){ endGame(); return; }
+  if(state.round>=state.totalRounds || state.lives<=0){ endGame(); return; }
   updateStats(); startTimer();
   const task=state.tasks[state.round];
   const renderers={sentence:window.renderSentenceBuilder, shooter:window.renderPictureShooter, typing:window.renderTypePreposition};
@@ -166,10 +162,10 @@ function endGame(){
   const old=Number(localStorage.getItem(bestKey())||0), best=Math.max(old,state.score);
   localStorage.setItem(bestKey(),String(best));
   el("resultScore").textContent=state.score;
-  el("resultCorrect").textContent=`${state.correct} / 8`;
+  el("resultCorrect").textContent=`${state.correct} / ${state.totalRounds}`;
   el("resultMistakes").textContent=state.mistakes;
   el("resultBest").textContent=best;
-  const pct=state.correct/8, stars=pct>=.9?3:pct>=.7?2:1;
+  const pct=state.totalRounds ? state.correct/state.totalRounds : 0, stars=pct>=.9?3:pct>=.7?2:1;
   el("resultStars").textContent="★".repeat(stars)+"☆".repeat(3-stars);
   sound("win.mp3"); setTimeout(()=>sound("completed.mp3"),250);
 }
@@ -192,9 +188,7 @@ function nextGame(){
   const order=["sentence","shooter","typing"], idx=order.indexOf(state.selectedGame);
   openSetup(order[(idx+1)%order.length]);
 }
-
 window.GameApp={state,IMAGE,SOUND,sound,shuffle,toast,registerCorrect,registerWrong,nextRound,endGame};
-
 document.querySelectorAll("[data-open-game]").forEach(b=>b.addEventListener("click",()=>openSetup(b.dataset.openGame)));
 document.querySelectorAll("[data-open-rules]").forEach(b=>b.addEventListener("click",()=>{clickSound();openRules(b.dataset.openRules);}));
 el("startGameBtn").addEventListener("click",startGame);
